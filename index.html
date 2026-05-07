@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SideQuest Giver RPG</title>
+    <style>
+        :root {
+            --easy: #00ff95;
+            --medium: #00ccff;
+            --hard: #ffcc00;
+            --difficult: #ff6600;
+            --impossible: #ff0000;
+            --bg: #0d0d0d;
+            --panel: #1a1a1a;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background: var(--bg); color: #fff;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Екран квесту */
+        .app-container {
+            display: flex; flex-direction: column;
+            height: 100vh; padding: 20px; box-sizing: border-box;
+        }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid #333; padding-bottom: 10px;
+        }
+
+        .stats { font-size: 14px; color: var(--easy); font-weight: bold; }
+
+        /* Картка квесту */
+        .quest-card {
+            background: var(--panel); border-radius: 15px;
+            padding: 25px; margin-top: 20px;
+            text-align: center; border: 2px solid #333;
+            transition: 0.5s; flex-grow: 1;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+
+        #quest-title { font-size: 24px; margin-bottom: 10px; text-transform: uppercase; }
+        #quest-desc { font-size: 16px; color: #bbb; margin-bottom: 20px; }
+        #quest-difficulty { 
+            display: inline-block; padding: 5px 15px; 
+            border-radius: 20px; font-weight: bold; margin-bottom: 15px;
+        }
+
+        .timer { font-size: 32px; font-family: monospace; margin: 20px 0; color: #ff3333; }
+
+        /* Кнопки */
+        .btn {
+            background: transparent; color: #fff; border: 2px solid #fff;
+            padding: 15px; border-radius: 10px; cursor: pointer;
+            font-weight: bold; text-transform: uppercase; transition: 0.3s;
+        }
+
+        #btn-get-quest { border-color: var(--easy); color: var(--easy); }
+        #btn-complete { border-color: #ffcc00; color: #ffcc00; display: none; }
+        .btn:active { transform: scale(0.95); }
+
+        /* Інвентар */
+        .inventory {
+            margin-top: 20px; background: #111; border-radius: 10px;
+            padding: 15px; min-height: 100px;
+        }
+        .inv-title { font-size: 12px; color: #666; margin-bottom: 10px; text-transform: uppercase; }
+        .items-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+        .item { 
+            width: 45px; height: 45px; background: #222; 
+            border: 1px solid #444; border-radius: 5px; 
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <div class="stats">LVL: <span id="lvl">1</span> | XP: <span id="xp">0</span>/100</div>
+        <div style="font-size: 20px;">🛡️</div>
+    </div>
+
+    <div class="quest-card" id="card">
+        <div id="quest-difficulty">ОБЕРІТЬ СКЛАДНІСТЬ</div>
+        <div id="quest-title">Готові до пригод?</div>
+        <div id="quest-desc">Натисніть кнопку нижче, щоб отримати своє перше завдання.</div>
+        
+        <div class="timer" id="timer">00:00:00</div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <select id="diff-select" class="btn" style="font-size: 12px;">
+                <option value="easy">ЛЕГКО</option>
+                <option value="medium">СЕРЕДНЬО</option>
+                <option value="hard">СКЛАДНО</option>
+                <option value="difficult">ВАЖКО</option>
+                <option value="impossible">ІМПОСІБЛ</option>
+            </select>
+            <button class="btn" id="btn-get-quest">ВЗЯТИ КВЕСТ</button>
+        </div>
+        
+        <button class="btn" id="btn-complete" style="margin-top: 15px;">Я ВИКОНАВ!</button>
+    </div>
+
+    <div class="inventory">
+        <div class="inv-title">Твій Інвентар</div>
+        <div class="items-grid" id="inventory-grid">
+            </div>
+    </div>
+</div>
+
+<script>
+    const quests = {
+        easy: [
+            { t: "Фото з котом", d: "Знайдіть на вулиці кота та зробіть з ним селфі.", time: 30 },
+            { t: "Спортсмен", d: "Зробіть 20 присідань прямо зараз.", time: 10 }
+        ],
+        medium: [
+            { t: "Дистанція", d: "Відійдіть від дому на 2 км.", time: 60 },
+            { t: "Кур'єр", d: "Купіть води та пригостіть будь-якого перехожого.", time: 45 }
+        ],
+        hard: [
+            { t: "Акробат", d: "Знайдіть безпечне місце та навчіться робити бекфліп (або колесо).", time: 180 },
+            { t: "Вершина", d: "Заберіться на найвищу точку в радіусі 1 км.", time: 120 }
+        ],
+        difficult: [
+            { t: "Плавці", d: "Дійдіть до найближчої річки/озера та торкніться води.", time: 300 },
+            { t: "Нічний дозор", d: "Обійдіть свій район по периметру.", time: 240 }
+        ],
+        impossible: [
+            { t: "Марафон", d: "Пройдіть пішки 15 км разом з друзями.", time: 600 },
+            { t: "Виживання", d: "Проведіть на вулиці 6 годин без повернення додому.", time: 360 }
+        ]
+    };
+
+    const rewards = ["🗡️", "🛡️", "💎", "🔋", "🍎", "🎖️", "🔑", "🧪", "🍕", "🦾"];
+    
+    let currentQuest = null;
+    let timerInterval = null;
+    let xp = 0;
+    let lvl = 1;
+
+    const el = {
+        title: document.getElementById('quest-title'),
+        desc: document.getElementById('quest-desc'),
+        diff: document.getElementById('quest-difficulty'),
+        timer: document.getElementById('timer'),
+        btnGet: document.getElementById('btn-get-quest'),
+        btnDone: document.getElementById('btn-complete'),
+        diffSelect: document.getElementById('diff-select'),
+        xp: document.getElementById('xp'),
+        lvl: document.getElementById('lvl'),
+        inv: document.getElementById('inventory-grid')
+    };
+
+    function startTimer(minutes) {
+        clearInterval(timerInterval);
+        let seconds = minutes * 60;
+        
+        timerInterval = setInterval(() => {
+            let h = Math.floor(seconds / 3600);
+            let m = Math.floor((seconds % 3600) / 60);
+            let s = seconds % 60;
+            
+            el.timer.innerText = 
+                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            
+            if (seconds <= 0) {
+                clearInterval(timerInterval);
+                alert("Час вийшов! Квест провалено.");
+                resetQuest();
+            }
+            seconds--;
+        }, 1000);
+    }
+
+    function resetQuest() {
+        el.btnGet.style.display = "block";
+        el.diffSelect.style.display = "block";
+        el.btnDone.style.display = "none";
+        el.timer.innerText = "00:00:00";
+        clearInterval(timerInterval);
+    }
+
+    el.btnGet.onclick = () => {
+        const difficulty = el.diffSelect.value;
+        const pool = quests[difficulty];
+        currentQuest = pool[Math.floor(Math.random() * pool.length)];
+
+        el.title.innerText = currentQuest.t;
+        el.desc.innerText = currentQuest.d;
+        el.diff.innerText = difficulty.toUpperCase();
+        el.diff.style.backgroundColor = `var(--${difficulty})`;
+        
+        el.btnGet.style.display = "none";
+        el.diffSelect.style.display = "none";
+        el.btnDone.style.display = "block";
+
+        startTimer(currentQuest.time);
+    };
+
+    el.btnDone.onclick = () => {
+        // Нагорода
+        const xpGain = { easy: 20, medium: 40, hard: 80, difficult: 150, impossible: 500 }[el.diffSelect.value];
+        xp += xpGain;
+        
+        if (xp >= 100) {
+            lvl++;
+            xp = 0;
+            alert(`НОВИЙ РІВЕНЬ: ${lvl}!`);
+        }
+
+        el.xp.innerText = xp;
+        el.lvl.innerText = lvl;
+
+        // Додавання предмета
+        const item = rewards[Math.floor(Math.random() * rewards.length)];
+        const itemEl = document.createElement('div');
+        itemEl.className = 'item';
+        itemEl.innerText = item;
+        el.inv.appendChild(itemEl);
+
+        alert(`Квест виконано! Отримано: ${item} та ${xpGain} XP`);
+        resetQuest();
+    };
+</script>
+
+</body>
+</html>
